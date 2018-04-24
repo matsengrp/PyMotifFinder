@@ -48,7 +48,7 @@ def make_kmer_dictionary(references, k):
 
 
 def n_alignments_per_mutation(mutations, kmer_dict, k):
-    """ Find the number of unique alignments in the reference set for each 
+    """ Find the number of unique alignments in the reference set for each
     mutation
 
     Keyword arguments:
@@ -118,7 +118,7 @@ def indexed_motif_finder(mutations, kmer_dict, k):
         q_id = row["mutated_seq_id"]
         seq_len = len(q)
         mut_idx = row["mutation_index"]
-        # search through all the windows around the mutation and check whether 
+        # search through all the windows around the mutation and check whether
         # they occur in the references
         found_match = False
         (min_start, max_start) = seed_starts(mut_idx, k, seq_len)
@@ -299,6 +299,7 @@ def per_base_alignments(partis_file, kmer_dict, k, max_mutation_rate, use_indel_
 
     return(pd.DataFrame(output_rows))
 
+
 def templates_per_base(partis_file, kmer_dict, k):
     """
 
@@ -307,7 +308,11 @@ def templates_per_base(partis_file, kmer_dict, k):
     kmer_dict -- A kmer dictionary describing the references.
     k -- The minimum match length for gcv tracts.
 
-    Returns: 
+    Returns: A data frame where each row contains the number of
+    templates for a putative mutation. The mutation is described in
+    terms of its germline base, the target base, the id of the mutated
+    sequence, the location within that sequence of the mutation, and
+    the mutation that actually occurred.
 
     """
     bases = ["A", "C", "G", "T"]
@@ -327,7 +332,18 @@ def templates_per_base(partis_file, kmer_dict, k):
             output.append(output_row)
     return(pd.DataFrame(output))
 
+
 def make_mutated_sequence(naive, index, base):
+    """
+
+    Keyword arguments:
+    naive -- A string giving the naive sequence.
+    index -- The position in the naive sequence to be changed.
+    base -- The target base.
+
+    Returns: A string with the mutated sequence.
+
+    """
     seq_as_list = list(naive)
     seq_as_list[index] = base
     return("".join(seq_as_list))
