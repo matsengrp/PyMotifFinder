@@ -1,18 +1,98 @@
 import pandas as pd
 import numpy as np
 from process_partis import process_partis
+from process_partis import process_partis_poly
+from Bio.SeqRecord import SeqRecord
+from Bio import SeqIO
+from Bio.Alphabet import IUPAC
+
+
+def motif_finder(partis_file, reference_fasta, k,
+                 kmer_dict=None,
+                 reverse_complement=False,
+                 max_mutation_rate=1,
+                 use_indel_seqs=True,
+                 return_dict=False):
+    """Matches mutations to potential gene conversion donors.
+
+    Keyword arguments:
+    partis_file -- A file containing partis output describing the
+    germline and mature sequences.
+    reference_fasta -- A fasta file containing the sequences in the
+    donor gene set.
+    k -- kmer size.
+    reverse_complement -- If True, also look for gene conversion
+    templates on the reverse complement.
+    max_mutation_rate -- Remove any sequences from the partis file
+    that have a mutation rate above max_mutation_rate.
+    use_indel_seqs -- If False, remove any seqeunces with indels from
+    partis_file.
+
+    Returns: A data frame with the query name, mutation index, and the
+    number of alignments in the reference set explaining that mutation.
+
+    """
+    mutations = process_partis(partis_file,
+                               max_mutation_rate=max_mutation_rate,
+                               use_indel_seqs=use_indel_seqs)
+    if kmer_dict is None:
+        kmer_dict = make_kmer_dict_from_fasta(reference_fasta,
+                                              k,
+                                              reverse_complement=reverse_complement)
+    imf_out = indexed_motif_finder(mutations, kmer_dict, k)
+    if not return_dict:
+        return(imf_out)
+    return (imf_out, kmer_dict)
+
+
+def poly_motif_finder(partis_file, reference_fasta, k,
+                      max_spacing,
+                      reverse_complement=False,
+                      max_mutation_rate=1,
+                      use_indel_seqs=True,
+                      kmer_dict=None):
+    """Matches mutations to potential gene conversion donors.
+
+    Keyword arguments:
+    partis_file -- A file containing partis output describing the
+    germline and mature sequences.
+    reference_fasta -- A fasta file containing the sequences in the
+    donor gene set.
+    k -- kmer size.
+    reverse_complement -- If True, also look for gene conversion
+    templates on the reverse complement.
+    max_mutation_rate -- Remove any sequences from the partis file
+    that have a mutation rate above max_mutation_rate.
+    use_indel_seqs -- If False, remove any seqeunces with indels from
+    partis_file.
+
+    Returns: A data frame with the query name, mutation index, and the
+    number of alignments in the reference set explaining that mutation.
+
+    """
+    mutations = process_partis_poly(partis_file, max_spacing=max_spacing,
+                               max_mutation_rate=max_mutation_rate,
+                               use_indel_seqs=use_indel_seqs)
+    if kmer_dict is None:
+        kmer_dict = make_kmer_dict_from_fasta(reference_fasta,
+                                              k,
+                                              reverse_complement=reverse_complement)
+
+    imf_out = indexed_motif_finder(mutations, kmer_dict, k)
+    return(imf_out)
+
 
 
 def seed_starts(idx, seed_len, seq_len):
     """Finds starting positions for windows around mutations
 
     Keyword arguments:
-    idx -- Either a single number (for a single mutation) or a tuple or list 
+    idx -- Either a single number (for a single mutation) or a tuple or list
     containing the indices of multiple mutations.
     seed_len -- The length of the window.
     seq_len -- The length of the sequence the mutations occur in.
 
-    Returns: A pair with the lowest and highest indices a window containing 
+    Returns: A pair with the lowest and highest indices a window containing
     the mutations can start at.
 
     """
@@ -23,7 +103,28 @@ def seed_starts(idx, seed_len, seq_len):
     return((min_start, max_start))
 
 
-def make_kmer_dictionary(references, k):
+def make_kmer_dict_from_fasta(fasta_file, k, reverse_complement=False):
+    """Make a kmer dictionary from a fasta file
+
+    Keyword arguments:
+
+    fasta_file -- A file containing the sequences of potential
+    conversion donors.
+    k -- k-mer size.
+    reverse_complement -- If True, also look for gene conversion
+    templates on the reverse complement.
+
+    Returns: A dictionary keyed by k-mers, mapping to sets of (name,
+    location) pairs describing where the k-mer occured.
+
+    """
+    refs = [r for r in SeqIO.parse(fasta_file, "fasta", alphabet=IUPAC.unambiguous_dna)]
+    kmer_dict = make_kmer_dictionary(refs, k, reverse_complement=reverse_complement)
+    return(kmer_dict)
+
+
+def make_kmer_dictionary(references, k, reverse_complement=False):
+
     """Make a dictionary mapping kmers to sequences they appear in
 
     Keyword arguments:
