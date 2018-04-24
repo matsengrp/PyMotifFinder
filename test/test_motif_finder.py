@@ -1,6 +1,7 @@
 import unittest
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
+from Bio.Alphabet import IUPAC
 from Bio import SeqIO
 from pymotiffinder.motif_finder import seed_starts, make_kmer_dictionary, indexed_motif_finder, extend_matches, hit_fraction, n_alignments_per_mutation, likelihood_given_gcv, per_base_alignments
 import pandas as pd
@@ -269,6 +270,24 @@ class testKmerDict(unittest.TestCase):
         self.assertEqual(d3["ATA"], set([(r1.name, r1.seq, 0)]))
         # there are no 4-mers in a sequence of size 3
         self.assertEqual(d4, {})
+
+    def test_rc(self):
+        r1 = SeqRecord(Seq("ATC", IUPAC.unambiguous_dna), name="r1")
+        d2 = make_kmer_dictionary([r1], 2, reverse_complement=True)
+        d3 = make_kmer_dictionary([r1], 3, reverse_complement=True)
+        # d2 should have AT, TC, and GA
+        self.assertEqual(len(d2.keys()), 3)
+        # the AT 2-mer is in r1 at position 0 and in the reverse complement of r1 at position 1
+        self.assertEqual(d2["AT"], set([(r1.name, r1.seq, 0),
+                                        ("r1_rc", r1.reverse_complement().seq, 1)]))
+        # The TC 2-mer is in r1 at position 1
+        self.assertEqual(d2["TC"], set([(r1.name, r1.seq, 1)]))
+        # The GA 2-mer is in the reverse complement of r1 at position 0
+        self.assertEqual(d2["GA"], set([("r1_rc", r1.reverse_complement().seq, 0)]))
+        # d3 should have ATC and GAT
+        self.assertEqual(len(d3.keys()), 2)
+        self.assertEqual(d3["ATC"], set([(r1.name, r1.seq, 0)]))
+        self.assertEqual(d3["GAT"], set([("r1_rc", r1.reverse_complement().seq, 0)]))
 
     def test_multiple_refs(self):
         # test making a dictionary out of multiple reference sequences

@@ -27,14 +27,23 @@ def make_kmer_dictionary(references, k):
     """Make a dictionary mapping kmers to sequences they appear in
 
     Keyword arguments:
-    references -- A list of SeqRecord objects (with names and sequences)
-    k -- The size of the k-mer
+    references -- A list of SeqRecord objects, with names and
+    sequences, sequences in IUPAC.unambiguous_dna.
+    k -- The size of the k-mer.
+    reverse_complement -- If True, also look for gene conversion
+    templates on the reverse complement.
 
-    Returns: A dictionary keyed by k-mers, mapping to sets of
-    (name, location) pairs describing where the k-mer occurred.
+    Returns: A dictionary keyed by k-mers, mapping to sets of (name,
+    sequence, location) pairs describing where the k-mer occurred.
 
     """
     d = {}
+    if reverse_complement:
+        references_rc = list()
+        for ref in references:
+            ref_rc = SeqRecord(name=ref.name + "_rc", seq=ref.reverse_complement().seq)
+            references_rc.append(ref_rc)
+        references = references + references_rc
     for ref in references:
         seq = str(ref.seq)
         seq_len = len(seq)
