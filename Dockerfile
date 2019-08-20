@@ -1,4 +1,4 @@
-FROM matsengrp/cpp
+FROM continuumio/miniconda
 
 # ----------------------------------------------------------------------------------------
 RUN pip install numpy
