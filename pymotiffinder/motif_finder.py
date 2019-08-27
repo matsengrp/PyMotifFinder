@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
-from process_partis import process_partis
-from process_partis import process_partis_poly
+from pymotiffinder.process_partis import process_partis
+from pymotiffinder.process_partis import process_partis_poly
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 from Bio.Alphabet import IUPAC
@@ -262,7 +262,7 @@ def indexed_motif_finder(mutations, kmer_dict, k):
 
 
 def extend_matches(df):
-    """Extends matches from indexed_motif_finder. Adds a columns for left-most 
+    """Extends matches from indexed_motif_finder. Adds a columns for left-most
     and right-most match indices and the match extent"""
 
     row_count = df.shape[0]
