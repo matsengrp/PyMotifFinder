@@ -12,7 +12,8 @@ def motif_finder(partis_file, reference_fasta, k,
                  reverse_complement=False,
                  max_mutation_rate=1,
                  use_indel_seqs=True,
-                 return_dict=False):
+                 return_dict=False,
+                 unique_mutations=False):
     """Matches mutations to potential gene conversion donors.
 
     Keyword arguments:
@@ -33,24 +34,26 @@ def motif_finder(partis_file, reference_fasta, k,
 
     """
     mutations = process_partis(partis_file,
-                               max_mutation_rate=max_mutation_rate,
-                               use_indel_seqs=use_indel_seqs)
+                                max_mutation_rate=max_mutation_rate,
+                                use_indel_seqs=use_indel_seqs)
+    n_mutations = get_n_mutations(mutations, unique=unique_mutations)
     if kmer_dict is None:
         kmer_dict = make_kmer_dict_from_fasta(reference_fasta,
                                               k,
                                               reverse_complement=reverse_complement)
     imf_out = indexed_motif_finder(mutations, kmer_dict, k)
+    hits, total_mutations = templated_number(imf_out, dale_method=False)
     if not return_dict:
-        return(imf_out)
-    return (imf_out, kmer_dict)
+        return(imf_out,  hits / n_mutations)
 
+    return (imf_out, hits / n_mutations, kmer_dict)
 
 def poly_motif_finder(partis_file, reference_fasta, k,
-                      max_spacing,
                       reverse_complement=False,
                       max_mutation_rate=1,
                       use_indel_seqs=True,
-                      kmer_dict=None):
+                      kmer_dict=None,
+                      dale_method=False):
     """Matches mutations to potential gene conversion donors.
 
     Keyword arguments:
@@ -70,17 +73,28 @@ def poly_motif_finder(partis_file, reference_fasta, k,
     number of alignments in the reference set explaining that mutation.
 
     """
-    mutations = process_partis_poly(partis_file, max_spacing=max_spacing,
-                               max_mutation_rate=max_mutation_rate,
-                               use_indel_seqs=use_indel_seqs)
+    ## create the kmer dictionary if needed
     if kmer_dict is None:
         kmer_dict = make_kmer_dict_from_fasta(reference_fasta,
                                               k,
                                               reverse_complement=reverse_complement)
-
-    imf_out = indexed_motif_finder(mutations, kmer_dict, k)
-    return(imf_out)
-
+    ## get the groups of mutations to be explained
+    poly_mutations = process_partis_poly(partis_file, max_spacing=k-1,
+                               max_mutation_rate=max_mutation_rate,
+                               use_indel_seqs=use_indel_seqs)
+    ## data frame containing sets of mutations and information about their templates
+    imf_out = indexed_motif_finder(poly_mutations, kmer_dict, k)
+    if dale_method:
+        hits, coverage_denom = templated_number(imf_out, dale_method=True)
+        return (imf_out, hits / coverage_denom)
+    else:
+        hits, _ = templated_number(imf_out, dale_method=False)
+        ## get the number of mutations
+        single_mutations = process_partis(partis_file,
+                                            max_mutation_rate=max_mutation_rate,
+                                            use_indel_seqs=use_indel_seqs)
+        n_mutations = single_mutations.shape[0]
+        return (imf_out, hits / n_mutations)
 
 
 def seed_starts(idx, seed_len, seq_len):
@@ -242,6 +256,8 @@ def indexed_motif_finder(mutations, kmer_dict, k):
                             "query_sequence": q,
                             "query_name": q_id,
                             "query_mutation_index": mut_idx,
+                            "naive_sequence": row["naive_seq"],
+                            "mutated_base": row["mutated_base"],
                             "reference_name": ref_name,
                             "reference_sequence": str(ref_seq),
                             "reference_alignment": ref_idx + mut_offset
@@ -254,6 +270,8 @@ def indexed_motif_finder(mutations, kmer_dict, k):
                     "query_sequence": q,
                     "query_name": q_id,
                     "query_mutation_index": mut_idx,
+                    "naive_sequence": row["naive_seq"],
+                    "mutated_base": row["mutated_base"],
                     "reference_name": "",
                     "reference_sequence": "",
                     "reference_alignment": np.nan
@@ -301,29 +319,63 @@ def extend_matches(df):
         df.loc[row, "query_left_idx"] = query_idx - left
         df.loc[row, "query_right_idx"] = query_idx + right
 
-
-def hit_fraction(df):
-    """Fraction of templated mutations.
+def templated_number(df, dale_method=False):
+    """Number of templated mutations from PolyMotifFinder.
 
     Keyword arguments:
-    df -- A pandas DataFrame created by indexed_motif_finder.
-    Returns: The fraction of mutations in df that have a template.
+    df -- A pandas DataFrame created by indexed_motif_finder, with query_mutation_index giving a set of indices corresponding to mutations that are explained or not by templated mutagenesis.
+    Returns: The number of mutations that have a template.
+    If dale_method=True, this is the number of unique mutations, where a unique mutation is one that corresponds to the same base and the same germline sequence.
+    If dale_method=False, this is the total number of mutations, so if we see the same mutation in more than one mutated sequence and it has a template both times, we count it twice.
     """
-    # a dictionary, keyed by (query sequence, mutation index) pairs,
-    # mapping to 0 if there was no template and 1 if there was a
-    # template
-    hit_dict = {}
+    already_seen_set = set()
+    ## keyed by mutated sequence, mutation index pairs
+    ## values are a pair, first element the sequence, index element of the mutation matrix, second element the sequence, index element of the scoring matrix
+    scoring_and_mutation_matrices = {}
     for (index, row) in df.iterrows():
-        query = row["query_sequence"]
-        mut_idx = row["query_mutation_index"]
-        # if there is no alignment, put a zero for the mutation
-        if np.isnan(row["reference_alignment"]):
-            hit_dict[(query, mut_idx)] = 0
-        # if there is an alignment, put one for the mutation
+        templated = not np.isnan(row["reference_alignment"])
+        seen_before = (row["naive_sequence"], row["query_mutation_index"], row["mutated_base"]) in already_seen_set
+        set_scoring_and_mutation_dict(row["query_sequence"], row["query_mutation_index"], templated, seen_before, scoring_and_mutation_matrices)
+        # if we're trying to count unique mutations, add the pair to the set of already seen mutation pairs
+        if dale_method:
+            already_seen_set.add((row["naive_sequence"], row["query_mutation_index"], row["mutated_base"]))
+
+    hit_number = sum([value[0] and (not value[1]) for value in scoring_and_mutation_matrices.values()])
+    total_mutations = sum((not value[1]) for value in scoring_and_mutation_matrices.values())
+    return float(hit_number), float(total_mutations)
+
+def set_scoring_and_mutation_dict(mutated_seq, mutation_index, is_templated, was_seen_before, scoring_and_mutation_dict):
+    if type(mutation_index) is not tuple:
+        mutation_index = [mutation_index]
+    for m in mutation_index:
+        if (mutated_seq, m) in scoring_and_mutation_dict:
+            old_value = scoring_and_mutation_dict[(mutated_seq, m)]
         else:
-            hit_dict[(query, mut_idx)] = 1
-    hits = np.mean([hit_dict[k] for k in hit_dict.keys()])
-    return hits
+            old_value = [False,False]
+        scoring_and_mutation_dict[(mutated_seq, m)] = [old_value[0] or is_templated, old_value[1] or was_seen_before]
+
+
+def get_n_mutations(mutation_df, unique=False):
+    """Counts the number of mutations
+
+    Keyword arguments:
+    mutation_df: The output from process_partis
+    unique: If True, counts the number of "unique" mutations, so if we see the same mutation away from the naive sequence in two different mutated sequences, it only counts once. Otherwise, counts the total number of mutations.
+
+    Returns: The number of mutations
+    """
+    ## we have one row per mutation, so if we're not collapsing on the naive sequence the number of mutations is the number of rows in mutation_df
+    if not unique:
+        return mutation_df.shape[0]
+    ## otherwise we make a set to store the mutations
+    mutation_set = set()
+    for index, row in mutation_df.iterrows():
+        naive_seq = row["naive_seq"]
+        mutation_index = row["mutation_index"]
+        mutation_identity = row["mutated_base"]
+        mutation_set.add((naive_seq, mutation_index, mutation_identity))
+    return len(mutation_set)
+
 
 
 def likelihood_given_gcv(partis_file, kmer_dict, k, max_mutation_rate, use_indel_seqs):
