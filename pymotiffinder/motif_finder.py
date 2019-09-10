@@ -84,18 +84,8 @@ def poly_motif_finder(partis_file, reference_fasta, k,
                                use_indel_seqs=use_indel_seqs)
     ## data frame containing sets of mutations and information about their templates
     imf_out = indexed_motif_finder(poly_mutations, kmer_dict, k)
-    if dale_method:
-        hits, coverage_denom = templated_number(imf_out, dale_method=True)
-        return (imf_out, hits / coverage_denom)
-    else:
-        hits, _ = templated_number(imf_out, dale_method=False)
-        ## get the number of mutations
-        single_mutations = process_partis(partis_file,
-                                            max_mutation_rate=max_mutation_rate,
-                                            use_indel_seqs=use_indel_seqs)
-        n_mutations = single_mutations.shape[0]
-        return (imf_out, hits / n_mutations)
-
+    hits, coverage_denom = templated_number(imf_out, dale_method=dale_method)
+    return (imf_out, hits / coverage_denom)
 
 def seed_starts(idx, seed_len, seq_len):
     """Finds starting positions for windows around mutations
@@ -339,9 +329,12 @@ def templated_number(df, dale_method=False):
         # if we're trying to count unique mutations, add the pair to the set of already seen mutation pairs
         if dale_method:
             already_seen_set.add((row["naive_sequence"], row["query_mutation_index"], row["mutated_base"]))
-
-    hit_number = sum([value[0] and (not value[1]) for value in scoring_and_mutation_matrices.values()])
-    total_mutations = sum((not value[1]) for value in scoring_and_mutation_matrices.values())
+    if dale_method:
+        hit_number = sum([value[0] and (not value[1]) for value in scoring_and_mutation_matrices.values()])
+        total_mutations = sum((not value[1]) for value in scoring_and_mutation_matrices.values())
+    else:
+        hit_number = sum([value[0] for value in scoring_and_mutation_matrices.values()])
+        total_mutations = len(scoring_and_mutation_matrices)
     return float(hit_number), float(total_mutations)
 
 def set_scoring_and_mutation_dict(mutated_seq, mutation_index, is_templated, was_seen_before, scoring_and_mutation_dict):
