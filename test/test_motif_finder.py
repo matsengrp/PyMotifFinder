@@ -3,7 +3,8 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio.Alphabet import IUPAC
 from Bio import SeqIO
-from pymotiffinder.motif_finder import seed_starts, make_kmer_dictionary, indexed_motif_finder, extend_matches, hit_fraction, n_alignments_per_mutation, likelihood_given_gcv, per_base_alignments
+from pymotiffinder.motif_finder import seed_starts, make_kmer_dictionary, indexed_motif_finder, extend_matches, n_alignments_per_mutation, likelihood_given_gcv, per_base_alignments, poly_motif_finder, get_n_mutations
+from pymotiffinder.process_partis import process_partis
 import pandas as pd
 import numpy as np
 
@@ -153,28 +154,6 @@ class testMotifFinder(unittest.TestCase):
         self.assertEqual(prob_s2.item(), 0)
         self.assertEqual(np.isnan(prob_s3.item()), True)
 
-    def test_hit_fraction(self):
-        mut_df = pd.DataFrame([{
-            "mutated_seq": "AAAAAAAA",
-            "naive_seq": "AAAAAAAG",
-            "mutated_seq_id": "s1",
-            "mutation_index": 7,
-            "gl_base": "G",
-            "mutated_base": "A"
-        }, {
-            "mutated_seq": "TCTAAAAA",
-            "naive_seq": "ACTAAAAA",
-            "mutated_seq_id": "s2",
-            "mutation_index": 0,
-            "gl_base": "A",
-            "mutated_base": "T"
-        }])
-        r1 = SeqRecord("TCTC", name="r1")
-        kmer_dict = make_kmer_dictionary([r1], k=3)
-        imf = indexed_motif_finder(mut_df, kmer_dict, k=3)
-        # the first mutation has no templates in the reference and the
-        # second one does, so we should get a hit fraction of .5.
-        self.assertEqual(hit_fraction(imf), .5)
 
     def test_base_alignment(self):
         partis_file = "test/likelihood_test_partis.csv"
@@ -194,27 +173,6 @@ class testMotifFinder(unittest.TestCase):
         self.assertEqual(perbase.loc[2, "C"].item(), 0)
         self.assertEqual(perbase.loc[2, "T"].item(), 0)
         self.assertEqual(perbase.loc[2, "G"].item(), 0)
-
-    def test_mutation_overlap(self):
-        # here we want to test that indexed_motif_finder deals with
-        # multiple mutations in a window correctly: if there are two
-        # mutations next to each other and we want to know if one of
-        # them is templated, we should be searching for templates that
-        # contain only one of the mutations, not both
-        mut_df = pd.DataFrame([{
-            "mutated_seq": "GTGGG",
-            "naive_seq": "AAGGG",
-            "mutated_seq_id": "s1",
-            "mutation_index": 0,
-            "gl_base": "A",
-            "mutated_base": "G"
-        }])
-        r1 = SeqRecord("GTG", name="r1")
-        kmer_dict = make_kmer_dictionary([r1], k=3)
-        imf = indexed_motif_finder(mut_df, kmer_dict, k=3)
-        # there's only one mutation, and it should have a template, so
-        # hit_fraction = 1
-        self.assertEqual(hit_fraction(imf), 1)
 
 
 class testSeedStarts(unittest.TestCase):
@@ -244,6 +202,17 @@ class testSeedStarts(unittest.TestCase):
         # one window starting at 6 containing the mutations
         self.assertEqual(seed_starts((8, 9), 4, 10), (6, 6))
 
+
+class testNumMutations(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_unique_mutations(self):
+        mutations = process_partis("test/dale_test_partis_1.csv")
+        n_mutations = get_n_mutations(mutations, unique=False)
+        n_unique_mutations = get_n_mutations(mutations, unique=True)
+        self.assertEqual(n_mutations, 5)
+        self.assertEqual(n_unique_mutations, 3)
 
 class testKmerDict(unittest.TestCase):
     def setUp(self):
