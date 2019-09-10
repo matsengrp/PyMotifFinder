@@ -1,6 +1,6 @@
 # PyMotifFinder
 
-![Docker Build](https://img.shields.io/docker/build/jfukuyama/pymotiffinder.svg)
+[![Docker Build](https://img.shields.io/docker/build/jfukuyama/pymotiffinder.svg)](https://hub.docker.com/r/jfukuyama/pymotiffinder/builds)
 
 PyMotifFinder is a python implementation of MotifFinder, an algorithm for identifying mutations that are potentially due to gene conversion.
 

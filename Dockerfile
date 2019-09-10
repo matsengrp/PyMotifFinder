@@ -1,9 +1,8 @@
-FROM continuumio/miniconda
+FROM python:3.7
 
 # ----------------------------------------------------------------------------------------
-RUN pip install numpy
-RUN pip install pandas
 RUN pip install biopython
+RUN pip install pandas
 
 COPY . /PyMotifFinder
 WORKDIR /PyMotifFinder
