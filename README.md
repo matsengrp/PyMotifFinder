@@ -12,16 +12,17 @@ pip install .
 from the base directory of the package.
 
 The package can also be used inside a docker image.
-To build the docker image, clone the repository, run
+You can pull from dockerhub, with
 ```
-docker build . -t pmf
+docker pull matsengrp/pymotiffinder
 ```
-Once the image is built, calling
+
+Once the image is pulled, calling
 ```
-docker run pmf
+docker run matsengrp/pymotiffinder
 ```
 will run all the tests, and
 ```
-docker run -it pmf /bin/bash
+docker run -it matsengrp/pymotiffinder /bin/bash
 ```
 will run an interactive session with PyMotifFinder installed.
