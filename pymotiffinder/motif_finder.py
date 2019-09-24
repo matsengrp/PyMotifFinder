@@ -155,9 +155,9 @@ def make_kmer_dictionary(references, k, reverse_complement=False):
         for start in range(0, seq_len - k + 1):
             kmer = seq[start:(start + k)]
             if kmer in d.keys():
-                d[kmer].add((ref.name, ref.seq, start))
+                d[kmer].add((ref.name, str(ref.seq), start))
             else:
-                d[kmer] = set([(ref.name, ref.seq, start)])
+                d[kmer] = set([(ref.name, str(ref.seq), start)])
     return d
 
 

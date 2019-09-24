@@ -138,7 +138,6 @@ class testMotifFinder(unittest.TestCase):
         self.assertEqual(imf["query_name"][0], "s1")
         self.assertEqual(imf["query_mutation_index"][0], (5,7))
 
-
     def test_likelihood(self):
         # set up
         partis_file = "test/likelihood_test_partis.csv"
@@ -153,7 +152,6 @@ class testMotifFinder(unittest.TestCase):
         self.assertEqual(prob_s1.item(), .5)
         self.assertEqual(prob_s2.item(), 0)
         self.assertEqual(np.isnan(prob_s3.item()), True)
-
 
     def test_base_alignment(self):
         partis_file = "test/likelihood_test_partis.csv"
@@ -229,14 +227,14 @@ class testKmerDict(unittest.TestCase):
         self.assertEqual("AT" in d2.keys(), True)
         self.assertEqual("TA" in d2.keys(), True)
         # the AT 2-mer was in the r1 sequence at position 0
-        self.assertEqual(d2["AT"], set([(r1.name, r1.seq, 0)]))
+        self.assertEqual(d2["AT"], set([(r1.name, str(r1.seq), 0)]))
         # the TA 2-mer was in the r1 sequence at position 1
-        self.assertEqual(d2["TA"], set([(r1.name, r1.seq, 1)]))
+        self.assertEqual(d2["TA"], set([(r1.name, str(r1.seq), 1)]))
         # the 3-mer dictionary should contain just ATA
         self.assertEqual(len(d3.keys()), 1)
         self.assertEqual("ATA" in d3.keys(), True)
         # the ATA 3-mer occurred in r1 at position 0
-        self.assertEqual(d3["ATA"], set([(r1.name, r1.seq, 0)]))
+        self.assertEqual(d3["ATA"], set([(r1.name, str(r1.seq), 0)]))
         # there are no 4-mers in a sequence of size 3
         self.assertEqual(d4, {})
 
@@ -247,16 +245,16 @@ class testKmerDict(unittest.TestCase):
         # d2 should have AT, TC, and GA
         self.assertEqual(len(d2.keys()), 3)
         # the AT 2-mer is in r1 at position 0 and in the reverse complement of r1 at position 1
-        self.assertEqual(d2["AT"], set([(r1.name, r1.seq, 0),
-                                        ("r1_rc", r1.reverse_complement().seq, 1)]))
+        self.assertEqual(d2["AT"], set([(r1.name, str(r1.seq), 0),
+                                        ("r1_rc", str(r1.reverse_complement().seq), 1)]))
         # The TC 2-mer is in r1 at position 1
-        self.assertEqual(d2["TC"], set([(r1.name, r1.seq, 1)]))
+        self.assertEqual(d2["TC"], set([(r1.name, str(r1.seq), 1)]))
         # The GA 2-mer is in the reverse complement of r1 at position 0
-        self.assertEqual(d2["GA"], set([("r1_rc", r1.reverse_complement().seq, 0)]))
+        self.assertEqual(d2["GA"], set([("r1_rc", str(r1.reverse_complement().seq), 0)]))
         # d3 should have ATC and GAT
         self.assertEqual(len(d3.keys()), 2)
-        self.assertEqual(d3["ATC"], set([(r1.name, r1.seq, 0)]))
-        self.assertEqual(d3["GAT"], set([("r1_rc", r1.reverse_complement().seq, 0)]))
+        self.assertEqual(d3["ATC"], set([(r1.name, str(r1.seq), 0)]))
+        self.assertEqual(d3["GAT"], set([("r1_rc", str(r1.reverse_complement().seq), 0)]))
 
     def test_multiple_refs(self):
         # test making a dictionary out of multiple reference sequences
