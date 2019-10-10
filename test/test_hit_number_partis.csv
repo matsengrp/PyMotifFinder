@@ -1,0 +1,6 @@
+unique_ids,v_gene,d_gene,j_gene,cdr3_length,mut_freqs,n_mutations,input_seqs,indel_reversed_seqs,naive_seq,indelfos,duplicates,v_per_gene_support,d_per_gene_support,j_per_gene_support,v_3p_del,d_5p_del,d_3p_del,j_5p_del,v_5p_del,j_3p_del,vd_insertion,dj_insertion,fv_insertion,jf_insertion,mutated_invariants,in_frames,stops,k_v,k_d,padlefts,padrights,all_matches,mut_freqs
+s1,,,,,,,TTAAA,,AAAAA,,,,,,,,,,,,,,,,,,,,,,,,
+s2,,,,,,,CCAAA,,AAAAA,,,,,,,,,,,,,,,,,,,,,,,,
+s3,,,,,,,TTAAA,,AAAAA,,,,,,,,,,,,,,,,,,,,,,,,
+s4,,,,,,,AAATT,,AAAAA,,,,,,,,,,,,,,,,,,,,,,,,
+s5,,,,,,,ATTAA,,AAAAA,,,,,,,,,,,,,,,,,,,,,,,,

@@ -41,7 +41,7 @@ def motif_finder(partis_file, reference_fasta, k,
         kmer_dict = make_kmer_dict_from_fasta(reference_fasta,
                                               k,
                                               reverse_complement=reverse_complement)
-    imf_out = indexed_motif_finder(mutations, kmer_dict, k)
+    imf_out = indexed_motif_finder(mutations, kmer_dict, k, all_matches = False)
     hits, total_mutations = templated_number(imf_out, dale_method=False)
     if not return_dict:
         return(imf_out,  hits / n_mutations)
@@ -83,7 +83,7 @@ def poly_motif_finder(partis_file, reference_fasta, k,
                                max_mutation_rate=max_mutation_rate,
                                use_indel_seqs=use_indel_seqs)
     ## data frame containing sets of mutations and information about their templates
-    imf_out = indexed_motif_finder(poly_mutations, kmer_dict, k)
+    imf_out = indexed_motif_finder(poly_mutations, kmer_dict, k, all_matches = False)
     hits, coverage_denom = templated_number(imf_out, dale_method=dale_method)
     return (imf_out, hits / coverage_denom)
 
@@ -206,7 +206,7 @@ def n_alignments_per_mutation(mutations, kmer_dict, k):
     return(pd.DataFrame(rows))
 
 
-def indexed_motif_finder(mutations, kmer_dict, k):
+def indexed_motif_finder(mutations, kmer_dict, k, all_matches = True):
     """Find matches around a set of mutations.
 
     Keyword arguments:
@@ -215,6 +215,8 @@ def indexed_motif_finder(mutations, kmer_dict, k):
     kmer_dict -- A dictionary indexed by k-mers giving the sequences
     they appear in.
     k -- The k used in the kmer dictionary
+    all_matches -- If True, returns one row for each match to a donor
+    sequence. Otherwise, just returns whether a match exists.
 
     Returns: A pandas DataFrame containing the query sequence, the
     indices of the mutation(s) in the query, the name and sequence of
@@ -266,8 +268,17 @@ def indexed_motif_finder(mutations, kmer_dict, k):
                     "reference_sequence": "",
                     "reference_alignment": np.nan
                     })
-    return pd.DataFrame(row_list).drop_duplicates().reset_index(drop=True)
-
+    all_matches_df = pd.DataFrame(row_list).drop_duplicates().reset_index(drop=True)
+    if all_matches:
+        return all_matches_df
+    def match_exists(x):
+        if np.isnan(x):
+            return False
+        return True
+    all_matches_df["match_exists"] = all_matches_df["reference_alignment"].apply(match_exists)
+    match_exists_df = all_matches_df[["query_sequence", "query_name", "query_mutation_index", "naive_sequence", "mutated_base", "match_exists"]]
+    match_exists_df = match_exists_df.drop_duplicates()
+    return match_exists_df
 
 def extend_matches(df):
     """Extends matches from indexed_motif_finder. Adds a columns for left-most
@@ -320,32 +331,37 @@ def templated_number(df, dale_method=False):
     """
     already_seen_set = set()
     ## keyed by mutated sequence, mutation index pairs
-    ## values are a pair, first element the sequence, index element of the mutation matrix, second element the sequence, index element of the scoring matrix
+    ## values are a pair, first element the sequence, index element of the scoring matrix (True if the mutation is templated, False otherwise),
+    ## second element the sequence, index element of the mutation matrix, True if that mutation was seen before, False otherwise
     scoring_and_mutation_matrices = {}
     for (index, row) in df.iterrows():
-        templated = not np.isnan(row["reference_alignment"])
+        templated = row["match_exists"]
         seen_before = (row["naive_sequence"], row["query_mutation_index"], row["mutated_base"]) in already_seen_set
-        set_scoring_and_mutation_dict(row["query_sequence"], row["query_mutation_index"], templated, seen_before, scoring_and_mutation_matrices)
+        set_scoring_and_mutation_dict(row["query_name"], row["query_mutation_index"], templated, seen_before, scoring_and_mutation_matrices)
         # if we're trying to count unique mutations, add the pair to the set of already seen mutation pairs
         if dale_method:
             already_seen_set.add((row["naive_sequence"], row["query_mutation_index"], row["mutated_base"]))
     if dale_method:
-        hit_number = sum([value[0] and (not value[1]) for value in scoring_and_mutation_matrices.values()])
-        total_mutations = sum((not value[1]) for value in scoring_and_mutation_matrices.values())
+        templated_number = sum([templated and not seen_before for (templated, seen_before) in scoring_and_mutation_matrices.values()])
+        total_mutations = sum((not seen_before) for (_, seen_before) in scoring_and_mutation_matrices.values())
     else:
-        hit_number = sum([value[0] for value in scoring_and_mutation_matrices.values()])
+        templated_number = sum([templated for (templated, _) in scoring_and_mutation_matrices.values()])
         total_mutations = len(scoring_and_mutation_matrices)
-    return float(hit_number), float(total_mutations)
+    return float(templated_number), float(total_mutations)
 
-def set_scoring_and_mutation_dict(mutated_seq, mutation_index, is_templated, was_seen_before, scoring_and_mutation_dict):
+def set_scoring_and_mutation_dict(mutated_seq_name, mutation_index, is_templated, was_seen_before, scoring_and_mutation_dict):
     if type(mutation_index) is not tuple:
         mutation_index = [mutation_index]
     for m in mutation_index:
-        if (mutated_seq, m) in scoring_and_mutation_dict:
-            old_value = scoring_and_mutation_dict[(mutated_seq, m)]
+        if (mutated_seq_name, m) in scoring_and_mutation_dict:
+            ## if we've seen the mutation before, as part of another pair in the same sequence, we need to know whether it had a template and whether it was seen before
+            old_value = scoring_and_mutation_dict[(mutated_seq_name, m)]
         else:
-            old_value = [False,False]
-        scoring_and_mutation_dict[(mutated_seq, m)] = [old_value[0] or is_templated, old_value[1] or was_seen_before]
+            ## if the mutation hasn't been encountered before, we haven't seen a template for it and it isn't part of a pair we've seen before
+            old_value = [False, False]
+        ## if the mutation is part of another pair that had a template (old_value[0] == True) or if it is templated as part of the current pair (is_templated), we call it templated
+        ## if the mutation is part of another pair that was seen before (old_value[1] == True) or if the pair currently under consideration was seen before (was_seen_before), we say it was seen before
+        scoring_and_mutation_dict[(mutated_seq_name, m)] = [old_value[0] or is_templated, old_value[1] or was_seen_before]
 
 
 def get_n_mutations(mutation_df, unique=False):

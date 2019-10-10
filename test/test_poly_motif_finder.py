@@ -3,7 +3,7 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio.Alphabet import IUPAC
 from Bio import SeqIO
-from pymotiffinder.motif_finder import poly_motif_finder
+from pymotiffinder.motif_finder import poly_motif_finder, templated_number
 import pandas as pd
 import numpy as np
 
@@ -11,6 +11,35 @@ class testMotifFinder(unittest.TestCase):
 
     def setUp(self):
         pass
+
+    def test_templated_number(self):
+        pmf_out, pmf_frac = poly_motif_finder("test/test_hit_number_partis.csv",
+                                    "test/dale_test_reference.fasta", k=2,
+                                    max_mutation_rate=1,
+                                    use_indel_seqs=True,
+                                    kmer_dict=None,
+                                    dale_method=True)
+
+        (hits, num_mutations) = templated_number(pmf_out, dale_method=True)
+        self.assertEqual(num_mutations, 8)
+        self.assertEqual(hits, 0)
+        (hits, num_mutations) = templated_number(pmf_out, dale_method=False)
+        self.assertEqual(num_mutations, 10)
+
+        pmf_out_15 = pmf_out[(pmf_out.query_name == "s1") | (pmf_out.query_name == "s5")]
+        (hits, num_mutations) = templated_number(pmf_out_15, dale_method=True)
+        self.assertEqual(num_mutations, 4)
+        self.assertEqual(hits, 0)
+        (hits, num_mutations) = templated_number(pmf_out_15, dale_method=False)
+        self.assertEqual(num_mutations, 4)
+
+        pmf_out_12 = pmf_out[(pmf_out.query_name == "s1") | (pmf_out.query_name == "s2")]
+        (hits, num_mutations) = templated_number(pmf_out_12, dale_method=True)
+        self.assertEqual(num_mutations, 4)
+        self.assertEqual(hits, 0)
+        (hits, num_mutations) = templated_number(pmf_out_12, dale_method=False)
+        self.assertEqual(num_mutations, 4)
+
 
     def test_pmf_order(self):
         ## the example from the paper
