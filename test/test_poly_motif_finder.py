@@ -21,23 +21,50 @@ class testMotifFinder(unittest.TestCase):
                                     dale_method=True)
 
         (hits, num_mutations) = templated_number(pmf_out, dale_method=True)
-        self.assertEqual(num_mutations, 8)
-        self.assertEqual(hits, 0)
+        self.assertEqual(num_mutations, 12)
+        self.assertEqual(hits, 6)
         (hits, num_mutations) = templated_number(pmf_out, dale_method=False)
-        self.assertEqual(num_mutations, 10)
+        self.assertEqual(hits, 6)
+        self.assertEqual(num_mutations, 14)
 
         pmf_out_15 = pmf_out[(pmf_out.query_name == "s1") | (pmf_out.query_name == "s5")]
         (hits, num_mutations) = templated_number(pmf_out_15, dale_method=True)
         self.assertEqual(num_mutations, 4)
         self.assertEqual(hits, 0)
         (hits, num_mutations) = templated_number(pmf_out_15, dale_method=False)
+        self.assertEqual(hits, 0)
         self.assertEqual(num_mutations, 4)
 
         pmf_out_12 = pmf_out[(pmf_out.query_name == "s1") | (pmf_out.query_name == "s2")]
         (hits, num_mutations) = templated_number(pmf_out_12, dale_method=True)
         self.assertEqual(num_mutations, 4)
-        self.assertEqual(hits, 0)
+        self.assertEqual(hits, 2)
         (hits, num_mutations) = templated_number(pmf_out_12, dale_method=False)
+        self.assertEqual(hits, 2)
+        self.assertEqual(num_mutations, 4)
+
+        pmf_out_145 = pmf_out[(pmf_out.query_name == "s1") | (pmf_out.query_name == "s4") | (pmf_out.query_name == "s5")]
+        (hits, num_mutations) = templated_number(pmf_out_145, dale_method=True)
+        self.assertEqual(num_mutations, 6)
+        self.assertEqual(hits, 0)
+        (hits, num_mutations) = templated_number(pmf_out_145, dale_method=False)
+        self.assertEqual(hits, 0)
+        self.assertEqual(num_mutations, 6)
+
+        pmf_out_267 = pmf_out[(pmf_out.query_name == "s2") | (pmf_out.query_name == "s6") | (pmf_out.query_name == "s7")]
+        (hits, num_mutations) = templated_number(pmf_out_267, dale_method=True)
+        self.assertEqual(num_mutations, 6)
+        self.assertEqual(hits, 6)
+        (hits, num_mutations) = templated_number(pmf_out_267, dale_method=False)
+        self.assertEqual(hits, 6)
+        self.assertEqual(num_mutations, 6)
+
+        pmf_out_46 = pmf_out[(pmf_out.query_name == "s4") | (pmf_out.query_name == "s6")]
+        (hits, num_mutations) = templated_number(pmf_out_46, dale_method=True)
+        self.assertEqual(num_mutations, 4)
+        self.assertEqual(hits, 2)
+        (hits, num_mutations) = templated_number(pmf_out_46, dale_method=False)
+        self.assertEqual(hits, 2)
         self.assertEqual(num_mutations, 4)
 
 
